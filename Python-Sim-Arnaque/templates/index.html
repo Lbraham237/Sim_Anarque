@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <title>Le Th&eacute;&acirc;tre de l'Arnaque - Simulateur Interactif</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <header>
+            <h1>Le Th&eacute;&acirc;tre de l'Arnaque</h1>
+            <p class="subtitle">Simulateur d'Arnaque Dynamique &amp; Interactif</p>
+        </header>
+
+        <nav class="top-nav">
+            <button class="nav-btn active" data-view="game" onclick="switchView('game')">&#x1F3AD; Simulation</button>
+            <button class="nav-btn" data-view="history" onclick="switchView('history')">&#x1F4CA; Historique</button>
+        </nav>
+
+        <div id="game-view">
+            <div id="setup-panel" class="panel">
+                <h2>Choisissez un Sc&eacute;nario</h2>
+                <div class="scenario-cards">
+                    {% for key, scenario in scenarios.items() %}
+                    <div class="scenario-card" data-scenario="{{ key }}">
+                        <div class="scenario-icon">{{ scenario.icon }}</div>
+                        <h3>{{ scenario.name }}</h3>
+                        <p>{{ scenario.short_desc }}</p>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <div class="mode-toggle">
+                    <h3>Mode de jeu</h3>
+                    <div class="toggle-options">
+                        <button class="mode-btn active" data-mode="manual" onclick="selectMode('manual')">
+                            <span class="mode-icon">&#x1F3AE;</span>
+                            <span class="mode-label">Vous jouez l'arnaqueur</span>
+                            <span class="mode-desc">Tapez vos messages pour essayer d'arnaquer Jeanne</span>
+                        </button>
+                        <button class="mode-btn" data-mode="auto" onclick="selectMode('auto')">
+                            <span class="mode-icon">&#x1F916;</span>
+                            <span class="mode-label">Arnaqueur Automatique</span>
+                            <span class="mode-desc">L'IA joue l'arnaqueur, regardez le spectacle !</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="tts-option">
+                    <label class="tts-toggle">
+                        <input type="checkbox" id="tts-checkbox">
+                        <span class="tts-slider"></span>
+                        <span class="tts-label">&#x1F50A; Voix de Jeanne (Text-to-Speech)</span>
+                    </label>
+                </div>
+
+                <button id="start-btn" class="btn btn-primary" disabled>D&eacute;marrer la Simulation</button>
+            </div>
+
+            <div id="simulation-panel" class="panel" style="display:none;">
+                <div class="sim-layout">
+                    <div class="main-area">
+                        <div class="info-bar">
+                            <div class="info-item">
+                                <span class="label">Sc&eacute;nario :</span>
+                                <span id="scenario-name" class="value"></span>
+                            </div>
+                            <div class="info-item">
+                                <span class="label">Tour :</span>
+                                <span id="turn-count" class="value">0</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="label">&Eacute;tape :</span>
+                                <span id="stage-num" class="value">1</span>
+                            </div>
+                            <div class="info-item" id="mode-badge-container">
+                                <span id="mode-badge" class="mode-badge"></span>
+                            </div>
+                            <button id="end-btn" class="btn btn-danger btn-sm">Terminer</button>
+                        </div>
+
+                        <div id="chat-container" class="chat-container">
+                            <div id="chat-messages" class="chat-messages"></div>
+                        </div>
+
+                        <div id="manual-input" class="input-area">
+                            <textarea id="message-input" placeholder="Vous &ecirc;tes l'arnaqueur... Tapez votre message ici" rows="2"></textarea>
+                            <button id="send-btn" class="btn btn-primary">Envoyer</button>
+                        </div>
+
+                        <div id="auto-controls" class="auto-controls" style="display:none;">
+                            <button id="auto-next-btn" class="btn btn-primary" onclick="autoNextTurn()">&#x25B6; Tour Suivant</button>
+                            <button id="auto-play-btn" class="btn btn-secondary" onclick="toggleAutoPlay()">&#x23EF; Lecture Auto</button>
+                            <span id="auto-status" class="auto-status">En pause</span>
+                        </div>
+                    </div>
+
+                    <div class="side-panel">
+                        <div class="panel-section">
+                            <h3>&#x1F3AC; Directeur de Sc&eacute;nario</h3>
+                            <div id="director-info" class="director-box">
+                                <p class="objective-label">Objectif courant de Jeanne :</p>
+                                <p id="current-objective" class="objective-text">En attente...</p>
+                            </div>
+                        </div>
+
+                        <div class="panel-section">
+                            <h3>&#x1F3B5; Effets Sonores</h3>
+                            <div id="sound-effects" class="sound-effects">
+                                <p class="no-effects">Aucun effet sonore pour le moment</p>
+                            </div>
+                            <div class="soundboard">
+                                <button class="soundboard-btn" onclick="SoundEngine.play('dog')">
+                                    <span class="sb-icon">&#x1F415;</span>Poupoune
+                                </button>
+                                <button class="soundboard-btn" onclick="SoundEngine.play('doorbell')">
+                                    <span class="sb-icon">&#x1F514;</span>Sonnette
+                                </button>
+                                <button class="soundboard-btn" onclick="SoundEngine.play('cough')">
+                                    <span class="sb-icon">&#x1F927;</span>Toux
+                                </button>
+                                <button class="soundboard-btn" onclick="SoundEngine.play('tv')">
+                                    <span class="sb-icon">&#x1F4FA;</span>T&eacute;l&eacute;
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="panel-section">
+                            <h3>&#x1F50A; Voix</h3>
+                            <label class="tts-toggle compact">
+                                <input type="checkbox" id="tts-active" onchange="toggleTTS()">
+                                <span class="tts-slider"></span>
+                                <span class="tts-label">Lire les r&eacute;ponses de Jeanne</span>
+                            </label>
+                            <div class="tts-settings" id="tts-settings" style="display:none;">
+                                <label class="tts-range-label">Vitesse : <span id="tts-rate-val">0.8</span></label>
+                                <input type="range" id="tts-rate" min="0.5" max="1.2" step="0.1" value="0.8" oninput="updateTTSRate()">
+                                <label class="tts-range-label">Hauteur : <span id="tts-pitch-val">1.2</span></label>
+                                <input type="range" id="tts-pitch" min="0.5" max="2" step="0.1" value="1.2" oninput="updateTTSPitch()">
+                            </div>
+                        </div>
+
+                        <div class="panel-section">
+                            <h3>&#x1F3AD; Interaction Audience</h3>
+                            <div id="audience-section">
+                                <div id="audience-proposals">
+                                    <textarea id="proposal-input" placeholder="Proposez un &eacute;v&eacute;nement perturbateur..." rows="2"></textarea>
+                                    <button id="proposal-btn" class="btn btn-secondary btn-sm">Proposer</button>
+                                </div>
+                                <div id="audience-vote" style="display:none;">
+                                    <p class="vote-title">Votez pour un &eacute;v&eacute;nement !</p>
+                                    <div id="vote-choices"></div>
+                                </div>
+                                <div id="audience-event-display" style="display:none;">
+                                    <p class="event-active">&Eacute;v&eacute;nement actif :</p>
+                                    <p id="active-event-text"></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="results-panel" class="panel" style="display:none;">
+                <h2>Simulation Termin&eacute;e !</h2>
+                <div id="results-content"></div>
+                <button id="restart-btn" class="btn btn-primary">Nouvelle Simulation</button>
+            </div>
+        </div>
+
+        <div id="history-view" style="display:none;">
+            <div class="panel">
+                <h2>&#x1F4CA; Statistiques Globales</h2>
+                <div id="global-stats" class="global-stats">
+                    <p class="no-effects">Aucune simulation termin&eacute;e pour le moment.</p>
+                </div>
+            </div>
+            <div class="panel" style="margin-top:20px;">
+                <h2>&#x1F4DC; Historique des Simulations</h2>
+                <div id="history-list" class="history-list">
+                    <p class="no-effects">Aucune simulation termin&eacute;e pour le moment.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="sound-overlay" class="sound-overlay" style="display:none;"></div>
+
+    <script>
+        const SoundEngine = {
+            ctx: null,
+
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+            },
+
+            play(type) {
+                this.init();
+                switch(type) {
+                    case 'dog': this._playDogBark(); this._showPopup('\u{1F415}', 'Poupoune aboie !'); break;
+                    case 'doorbell': this._playDoorbell(); this._showPopup('\u{1F514}', 'Ding-dong !'); break;
+                    case 'cough': this._playCough(); this._showPopup('\u{1F927}', 'Quinte de toux !'); break;
+                    case 'tv': this._playTV(); this._showPopup('\u{1F4FA}', 'Les Feux de l\'Amour !'); break;
+                }
+            },
+
+            _playDogBark() {
+                const ctx = this.ctx;
+                for (let i = 0; i < 4; i++) {
+                    const t = ctx.currentTime + i * 0.25;
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(400 + Math.random() * 200, t);
+                    osc.frequency.exponentialRampToValueAtTime(200, t + 0.12);
+                    gain.gain.setValueAtTime(0.3, t);
+                    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.15);
+                    osc.connect(gain).connect(ctx.destination);
+                    osc.start(t);
+                    osc.stop(t + 0.18);
+                }
+                for (let i = 0; i < 3; i++) {
+                    const t = ctx.currentTime + i * 0.3;
+                    const noise = this._createNoise(ctx, 0.08, t);
+                    noise.gain.setValueAtTime(0.06, t);
+                    noise.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+                }
+            },
+
+            _playDoorbell() {
+                const ctx = this.ctx;
+                const freqs = [523.25, 659.25, 523.25];
+                freqs.forEach((freq, i) => {
+                    const t = ctx.currentTime + i * 0.35;
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, t);
+                    gain.gain.setValueAtTime(0.25, t);
+                    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.3);
+                    osc.connect(gain).connect(ctx.destination);
+                    osc.start(t);
+                    osc.stop(t + 0.35);
+                    const osc2 = ctx.createOscillator();
+                    const gain2 = ctx.createGain();
+                    osc2.type = 'sine';
+                    osc2.frequency.setValueAtTime(freq * 2, t);
+                    gain2.gain.setValueAtTime(0.08, t);
+                    gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+                    osc2.connect(gain2).connect(ctx.destination);
+                    osc2.start(t);
+                    osc2.stop(t + 0.3);
+                });
+            },
+
+            _playCough() {
+                const ctx = this.ctx;
+                for (let i = 0; i < 5; i++) {
+                    const t = ctx.currentTime + i * 0.22 + Math.random() * 0.05;
+                    const n = this._createNoise(ctx, 0.18, t);
+                    n.gain.setValueAtTime(0, t);
+                    n.gain.linearRampToValueAtTime(0.15 + Math.random() * 0.1, t + 0.03);
+                    n.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+                }
+            },
+
+            _playTV() {
+                const ctx = this.ctx;
+                const melody = [262, 294, 330, 349, 330, 294, 262, 294, 330, 349, 392];
+                melody.forEach((freq, i) => {
+                    const t = ctx.currentTime + i * 0.18;
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, t);
+                    gain.gain.setValueAtTime(0.12, t);
+                    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.16);
+                    osc.connect(gain).connect(ctx.destination);
+                    osc.start(t);
+                    osc.stop(t + 0.18);
+                });
+                const n = this._createNoise(ctx, 2, ctx.currentTime);
+                n.gain.setValueAtTime(0.02, ctx.currentTime);
+                n.gain.linearRampToValueAtTime(0.04, ctx.currentTime + 1);
+                n.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 2);
+            },
+
+            _createNoise(ctx, duration, startTime) {
+                const bufferSize = ctx.sampleRate * duration;
+                const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = (Math.random() * 2 - 1);
+                }
+                const source = ctx.createBufferSource();
+                source.buffer = buffer;
+                const filter = ctx.createBiquadFilter();
+                filter.type = 'bandpass';
+                filter.frequency.value = 800;
+                filter.Q.value = 1;
+                const gain = ctx.createGain();
+                source.connect(filter).connect(gain).connect(ctx.destination);
+                source.start(startTime);
+                source.stop(startTime + duration);
+                return gain;
+            },
+
+            _showPopup(emoji, label) {
+                const overlay = document.getElementById('sound-overlay');
+                overlay.style.display = 'flex';
+                overlay.innerHTML = `
+                    <div class="sound-popup">
+                        <span class="sound-emoji">${emoji}</span>
+                        <span class="sound-label">${label}</span>
+                    </div>
+                `;
+                setTimeout(() => { overlay.style.display = 'none'; }, 2500);
+            }
+        };
+
+        const TTS = {
+            enabled: false,
+            rate: 0.8,
+            pitch: 1.2,
+            voice: null,
+
+            init() {
+                if (!('speechSynthesis' in window)) return;
+                const loadVoices = () => {
+                    const voices = speechSynthesis.getVoices();
+                    this.voice = voices.find(v => v.lang.startsWith('fr') && v.name.toLowerCase().includes('female'))
+                        || voices.find(v => v.lang.startsWith('fr'))
+                        || voices[0];
+                };
+                loadVoices();
+                speechSynthesis.onvoiceschanged = loadVoices;
+            },
+
+            speak(text) {
+                if (!this.enabled || !('speechSynthesis' in window)) return;
+                speechSynthesis.cancel();
+                const clean = text.replace(/\[SOUND_EFFECT: \w+\]/g, '').replace(/[*_]/g, '').trim();
+                if (!clean) return;
+                const utterance = new SpeechSynthesisUtterance(clean);
+                utterance.lang = 'fr-FR';
+                utterance.rate = this.rate;
+                utterance.pitch = this.pitch;
+                if (this.voice) utterance.voice = this.voice;
+                speechSynthesis.speak(utterance);
+            }
+        };
+        TTS.init();
+
+        const state = {
+            sessionId: null,
+            selectedScenario: null,
+            selectedMode: 'manual',
+            loading: false,
+            proposals: [],
+            autoPlaying: false,
+            autoInterval: null,
+        };
+
+        const $ = (sel) => document.querySelector(sel);
+        const $$ = (sel) => document.querySelectorAll(sel);
+
+        document.querySelectorAll('.scenario-card').forEach(card => {
+            card.addEventListener('click', () => {
+                document.querySelectorAll('.scenario-card').forEach(c => c.classList.remove('selected'));
+                card.classList.add('selected');
+                state.selectedScenario = card.dataset.scenario;
+                $('#start-btn').disabled = false;
+            });
+        });
+
+        $('#start-btn').addEventListener('click', startSimulation);
+        $('#send-btn').addEventListener('click', sendMessage);
+        $('#end-btn').addEventListener('click', endSimulation);
+        $('#restart-btn').addEventListener('click', () => {
+            switchView('game');
+            $('#setup-panel').style.display = 'block';
+            $('#simulation-panel').style.display = 'none';
+            $('#results-panel').style.display = 'none';
+            state.sessionId = null;
+            state.autoPlaying = false;
+            if (state.autoInterval) clearInterval(state.autoInterval);
+        });
+        $('#proposal-btn').addEventListener('click', submitProposal);
+
+        $('#message-input').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        function switchView(view) {
+            $$('.nav-btn').forEach(b => b.classList.remove('active'));
+            $(`.nav-btn[data-view="${view}"]`).classList.add('active');
+            $('#game-view').style.display = view === 'game' ? 'block' : 'none';
+            $('#history-view').style.display = view === 'history' ? 'block' : 'none';
+            if (view === 'history') loadHistory();
+        }
+
+        function selectMode(mode) {
+            state.selectedMode = mode;
+            $$('.mode-btn').forEach(b => b.classList.remove('active'));
+            $(`.mode-btn[data-mode="${mode}"]`).classList.add('active');
+        }
+
+        function toggleTTS() {
+            TTS.enabled = $('#tts-active').checked;
+            $('#tts-settings').style.display = TTS.enabled ? 'block' : 'none';
+        }
+
+        function updateTTSRate() {
+            TTS.rate = parseFloat($('#tts-rate').value);
+            $('#tts-rate-val').textContent = TTS.rate.toFixed(1);
+        }
+
+        function updateTTSPitch() {
+            TTS.pitch = parseFloat($('#tts-pitch').value);
+            $('#tts-pitch-val').textContent = TTS.pitch.toFixed(1);
+        }
+
+        async function startSimulation() {
+            if (!state.selectedScenario) return;
+            SoundEngine.init();
+
+            if ($('#tts-checkbox').checked) {
+                TTS.enabled = true;
+                $('#tts-active').checked = true;
+                $('#tts-settings').style.display = 'block';
+            }
+
+            setLoading(true);
+
+            try {
+                const res = await fetch('/api/start', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        scenario: state.selectedScenario,
+                        auto_mode: state.selectedMode === 'auto'
+                    })
+                });
+                const data = await res.json();
+                state.sessionId = data.session_id;
+
+                $('#setup-panel').style.display = 'none';
+                $('#simulation-panel').style.display = 'block';
+                $('#scenario-name').textContent = data.scenario;
+
+                if (data.auto_mode) {
+                    $('#manual-input').style.display = 'none';
+                    $('#auto-controls').style.display = 'flex';
+                    $('#mode-badge').textContent = '\u{1F916} Auto';
+                    $('#mode-badge').className = 'mode-badge auto';
+                } else {
+                    $('#manual-input').style.display = 'flex';
+                    $('#auto-controls').style.display = 'none';
+                    $('#mode-badge').textContent = '\u{1F3AE} Manuel';
+                    $('#mode-badge').className = 'mode-badge manual';
+                }
+
+                addSystemMessage(data.message);
+
+                if (data.auto_mode) {
+                    setTimeout(() => autoNextTurn(), 1000);
+                }
+            } catch (err) {
+                alert('Erreur lors du d\u00e9marrage: ' + err.message);
+            }
+            setLoading(false);
+        }
+
+        async function sendMessage() {
+            const input = $('#message-input');
+            const message = input.value.trim();
+            if (!message || state.loading) return;
+
+            input.value = '';
+            addMessage('scammer', message);
+            setLoading(true);
+            showTypingIndicator();
+
+            try {
+                const res = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({session_id: state.sessionId, message})
+                });
+                const data = await res.json();
+                removeTypingIndicator();
+
+                if (data.error) {
+                    addSystemMessage('Erreur: ' + data.error);
+                } else {
+                    addMessage('jeanne', data.response);
+                    TTS.speak(data.response);
+
+                    $('#turn-count').textContent = data.turn;
+                    $('#stage-num').textContent = data.stage;
+
+                    const objEl = $('#current-objective');
+                    objEl.textContent = data.objective;
+                    objEl.classList.add('updated');
+                    setTimeout(() => objEl.classList.remove('updated'), 600);
+
+                    if (data.sound_effects && data.sound_effects.length > 0) {
+                        showSoundEffects(data.sound_effects);
+                    } else {
+                        detectAndPlaySounds(data.response);
+                    }
+
+                    if (data.should_vote) {
+                        triggerAudienceVote();
+                    }
+                }
+            } catch (err) {
+                removeTypingIndicator();
+                addSystemMessage('Erreur de communication: ' + err.message);
+            }
+            setLoading(false);
+            input.focus();
+        }
+
+        async function autoNextTurn() {
+            if (state.loading) return;
+            setLoading(true);
+            showTypingIndicator();
+            $('#auto-next-btn').disabled = true;
+
+            try {
+                const res = await fetch('/api/auto_turn', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({session_id: state.sessionId})
+                });
+                const data = await res.json();
+                removeTypingIndicator();
+
+                if (data.error) {
+                    addSystemMessage('Erreur: ' + data.error);
+                    stopAutoPlay();
+                } else {
+                    addMessage('scammer', data.scammer_message);
+                    await new Promise(r => setTimeout(r, 800));
+                    addMessage('jeanne', data.response);
+                    TTS.speak(data.response);
+
+                    $('#turn-count').textContent = data.turn;
+                    $('#stage-num').textContent = data.stage;
+
+                    const objEl = $('#current-objective');
+                    objEl.textContent = data.objective;
+                    objEl.classList.add('updated');
+                    setTimeout(() => objEl.classList.remove('updated'), 600);
+
+                    if (data.sound_effects && data.sound_effects.length > 0) {
+                        showSoundEffects(data.sound_effects);
+                    } else {
+                        detectAndPlaySounds(data.response);
+                    }
+
+                    if (data.should_vote) {
+                        triggerAudienceVote();
+                    }
+                }
+            } catch (err) {
+                removeTypingIndicator();
+                addSystemMessage('Erreur: ' + err.message);
+                stopAutoPlay();
+            }
+            setLoading(false);
+            $('#auto-next-btn').disabled = false;
+        }
+
+        function toggleAutoPlay() {
+            if (state.autoPlaying) {
+                stopAutoPlay();
+            } else {
+                state.autoPlaying = true;
+                $('#auto-status').textContent = 'En lecture...';
+                $('#auto-play-btn').innerHTML = '&#x23F8; Pause';
+                $('#auto-play-btn').classList.add('playing');
+                runAutoLoop();
+            }
+        }
+
+        function runAutoLoop() {
+            if (!state.autoPlaying) return;
+            autoNextTurn().then(() => {
+                if (state.autoPlaying) {
+                    state.autoInterval = setTimeout(runAutoLoop, 4000);
+                }
+            });
+        }
+
+        function stopAutoPlay() {
+            state.autoPlaying = false;
+            if (state.autoInterval) {
+                clearTimeout(state.autoInterval);
+                state.autoInterval = null;
+            }
+            $('#auto-status').textContent = 'En pause';
+            $('#auto-play-btn').innerHTML = '&#x23EF; Lecture Auto';
+            $('#auto-play-btn').classList.remove('playing');
+        }
+
+        function detectAndPlaySounds(text) {
+            if (!text) return;
+            const upper = text.toUpperCase();
+            if (upper.includes('DOG_BARKING') || upper.includes('ABOIE') || upper.includes('WOOF')) {
+                setTimeout(() => SoundEngine.play('dog'), 300);
+            }
+            if (upper.includes('DOORBELL') || upper.includes('DING-DONG') || upper.includes('SONNETTE')) {
+                setTimeout(() => SoundEngine.play('doorbell'), 500);
+            }
+            if (upper.includes('COUGHING') || upper.includes('TOUSSE') || upper.includes('TOUX')) {
+                setTimeout(() => SoundEngine.play('cough'), 300);
+            }
+            if (upper.includes('TV_LOUD') || upper.includes('FEUX DE L') || upper.includes('TV_BACKGROUND')) {
+                setTimeout(() => SoundEngine.play('tv'), 500);
+            }
+        }
+
+        function showTypingIndicator() {
+            const container = $('#chat-messages');
+            const div = document.createElement('div');
+            div.className = 'typing-indicator';
+            div.id = 'typing-indicator';
+            div.innerHTML = `
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+            `;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function removeTypingIndicator() {
+            const el = document.getElementById('typing-indicator');
+            if (el) el.remove();
+        }
+
+        function addMessage(role, content) {
+            const container = $('#chat-messages');
+            const div = document.createElement('div');
+            div.className = `message ${role}`;
+
+            const avatar = role === 'scammer' ? '\u{1F9B9}' : '\u{1F475}';
+            const name = role === 'scammer' ? (state.selectedMode === 'auto' ? 'Arnaqueur (IA)' : 'Vous (Arnaqueur)') : 'Jeanne Dubois';
+
+            let displayContent = content;
+            displayContent = displayContent.replace(/\[SOUND_EFFECT: (\w+)\]/g, (match, effect) => {
+                const icons = {
+                    'DOG_BARKING': '\u{1F415} <em>Woof woof!</em>',
+                    'DOORBELL': '\u{1F514} <em>Ding-dong!</em>',
+                    'COUGHING': '\u{1F927} <em>Tousse tousse</em>',
+                    'TV_LOUD': '\u{1F4FA} <em>Volume TV augment\u00e9</em>'
+                };
+                return `<span class="sound-inline">${icons[effect] || match}</span>`;
+            });
+
+            div.innerHTML = `
+                <div class="msg-header">
+                    <span class="avatar">${avatar}</span>
+                    <span class="name">${name}</span>
+                </div>
+                <div class="msg-body">${displayContent}</div>
+            `;
+
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function addSystemMessage(content) {
+            const container = $('#chat-messages');
+            const div = document.createElement('div');
+            div.className = 'message system';
+            div.innerHTML = `<div class="msg-body">${content}</div>`;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function showSoundEffects(effects) {
+            const container = $('#sound-effects');
+            container.innerHTML = effects.map(e =>
+                `<div class="effect-item">
+                    <div class="effect-wave">
+                        <span></span><span></span><span></span><span></span><span></span>
+                    </div>
+                    ${e}
+                </div>`
+            ).join('');
+
+            effects.forEach((e, i) => {
+                const upper = e.toUpperCase();
+                setTimeout(() => {
+                    if (upper.includes('POUPOUNE') || upper.includes('ABOIE')) SoundEngine.play('dog');
+                    else if (upper.includes('DING') || upper.includes('SONNETTE')) SoundEngine.play('doorbell');
+                    else if (upper.includes('TOUSSE') || upper.includes('TOUX')) SoundEngine.play('cough');
+                    else if (upper.includes('FEUX') || upper.includes('TV') || upper.includes('T\u00c9L\u00c9')) SoundEngine.play('tv');
+                }, i * 800);
+            });
+
+            setTimeout(() => {
+                container.innerHTML = '<p class="no-effects">Aucun effet sonore pour le moment</p>';
+            }, 6000);
+        }
+
+        function submitProposal() {
+            const input = $('#proposal-input');
+            const text = input.value.trim();
+            if (!text) return;
+            state.proposals.push(text);
+            input.value = '';
+            addSystemMessage(`Proposition audience ajout\u00e9e : "${text}"`);
+        }
+
+        async function triggerAudienceVote() {
+            addSystemMessage("\u{1F3AD} C'est l'heure du vote audience ! G\u00e9n\u00e9ration des choix...");
+
+            try {
+                const res = await fetch('/api/audience/vote', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        session_id: state.sessionId,
+                        proposals: state.proposals
+                    })
+                });
+                const data = await res.json();
+                state.proposals = [];
+
+                if (data.choices) {
+                    showVoteChoices(data.choices);
+                }
+            } catch (err) {
+                addSystemMessage('Erreur vote: ' + err.message);
+            }
+        }
+
+        function showVoteChoices(choices) {
+            const container = $('#vote-choices');
+            container.innerHTML = '';
+            $('#audience-vote').style.display = 'block';
+            $('#audience-proposals').style.display = 'none';
+
+            choices.forEach(choice => {
+                const btn = document.createElement('button');
+                btn.className = 'btn btn-vote';
+                btn.innerHTML = `<strong>${choice.id}.</strong> ${choice.description}`;
+                btn.addEventListener('click', () => selectVote(choice.id));
+                container.appendChild(btn);
+            });
+        }
+
+        async function selectVote(choiceId) {
+            try {
+                const res = await fetch('/api/audience/select', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({session_id: state.sessionId, choice_id: choiceId})
+                });
+                const data = await res.json();
+
+                $('#audience-vote').style.display = 'none';
+                $('#audience-proposals').style.display = 'block';
+
+                if (data.selected) {
+                    addSystemMessage(`\u{1F3AD} \u00c9v\u00e9nement audience activ\u00e9 : ${data.selected.description}`);
+                    $('#audience-event-display').style.display = 'block';
+                    $('#active-event-text').textContent = data.selected.instruction;
+                }
+            } catch (err) {
+                addSystemMessage('Erreur: ' + err.message);
+            }
+        }
+
+        function setLoading(loading) {
+            state.loading = loading;
+            $('#send-btn').disabled = loading;
+            if (loading) {
+                $('#send-btn').textContent = '...';
+            } else {
+                $('#send-btn').textContent = 'Envoyer';
+            }
+        }
+
+        async function endSimulation() {
+            stopAutoPlay();
+            try {
+                const res = await fetch('/api/end', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({session_id: state.sessionId})
+                });
+                const data = await res.json();
+
+                $('#simulation-panel').style.display = 'none';
+                $('#results-panel').style.display = 'block';
+
+                const duration = data.duration_seconds || 0;
+                const mins = Math.floor(duration / 60);
+                const secs = duration % 60;
+
+                $('#results-content').innerHTML = `
+                    <p class="results-message">${data.verdict || data.message}</p>
+                    <div class="results-stats">
+                        <div class="stat"><span class="stat-label">Tours jou\u00e9s</span><span class="stat-value">${data.total_turns}</span></div>
+                        <div class="stat"><span class="stat-label">\u00c9tape atteinte</span><span class="stat-value">${data.max_stage || data.final_stage}/${data.total_stages || '5'}</span></div>
+                        <div class="stat"><span class="stat-label">Dur\u00e9e</span><span class="stat-value">${mins}m ${secs}s</span></div>
+                        <div class="stat"><span class="stat-label">Effets sonores</span><span class="stat-value">${data.sound_effects_triggered || 0}</span></div>
+                    </div>
+                    <p class="results-message" style="font-size:0.9em; color:#888;">
+                        ${data.auto_mode ? '\u{1F916} Mode Arnaqueur Automatique' : '\u{1F3AE} Mode Manuel'}
+                    </p>
+                `;
+            } catch (err) {
+                addSystemMessage('Erreur: ' + err.message);
+            }
+        }
+
+        async function loadHistory() {
+            try {
+                const res = await fetch('/api/history');
+                const data = await res.json();
+                renderStats(data.stats);
+                renderHistory(data.history);
+            } catch (err) {
+                console.error('History load error:', err);
+            }
+        }
+
+        function renderStats(stats) {
+            const container = $('#global-stats');
+            if (!stats || stats.total_simulations === 0) {
+                container.innerHTML = '<p class="no-effects">Aucune simulation termin\u00e9e pour le moment.</p>';
+                return;
+            }
+            container.innerHTML = `
+                <div class="results-stats">
+                    <div class="stat"><span class="stat-label">Simulations</span><span class="stat-value">${stats.total_simulations}</span></div>
+                    <div class="stat"><span class="stat-label">Victoires Jeanne</span><span class="stat-value">${stats.jeanne_wins} (${stats.jeanne_win_rate}%)</span></div>
+                    <div class="stat"><span class="stat-label">Moy. tours</span><span class="stat-value">${stats.avg_turns}</span></div>
+                    <div class="stat"><span class="stat-label">Moy. dur\u00e9e</span><span class="stat-value">${Math.floor(stats.avg_duration/60)}m${stats.avg_duration%60}s</span></div>
+                    <div class="stat"><span class="stat-label">Effets sonores</span><span class="stat-value">${stats.total_sounds}</span></div>
+                    <div class="stat"><span class="stat-label">Parties auto</span><span class="stat-value">${stats.auto_simulations}</span></div>
+                </div>
+                <p class="history-note">Sc\u00e9nario pr\u00e9f\u00e9r\u00e9 : <strong>${stats.most_played}</strong></p>
+            `;
+        }
+
+        function renderHistory(history) {
+            const container = $('#history-list');
+            if (!history || history.length === 0) {
+                container.innerHTML = '<p class="no-effects">Aucune simulation termin\u00e9e pour le moment.</p>';
+                return;
+            }
+            container.innerHTML = history.map(h => {
+                const d = new Date(h.timestamp * 1000);
+                const dateStr = d.toLocaleDateString('fr-FR') + ' ' + d.toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
+                const mins = Math.floor(h.duration / 60);
+                const secs = h.duration % 60;
+                return `
+                    <div class="history-item ${h.jeanne_won ? 'jeanne-won' : 'scammer-won'}">
+                        <div class="history-header">
+                            <span class="history-scenario">${h.scenario}</span>
+                            <span class="history-mode">${h.auto_mode ? '\u{1F916} Auto' : '\u{1F3AE} Manuel'}</span>
+                            <span class="history-date">${dateStr}</span>
+                        </div>
+                        <div class="history-details">
+                            <span>${h.turns} tours</span>
+                            <span>\u00c9tape ${h.max_stage}/${h.total_stages}</span>
+                            <span>${mins}m${secs}s</span>
+                            <span>${h.sound_effects} effets</span>
+                            <span class="history-result">${h.jeanne_won ? '\u{1F475} Jeanne gagne' : '\u{1F9B9} \u00c9tape max atteinte'}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+    </script>
+</body>
+</html>
