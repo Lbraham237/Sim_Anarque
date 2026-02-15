@@ -203,7 +203,11 @@ Jeanne: Un virus ?! Oh mon Dieu ! Marcel, mon défunt mari, il disait
 
 ## 10. Captures d'écran
 
-[À AJOUTER : Screenshots de l'application en fonctionnement]
+
+<img width="1337" height="599" alt="Capture d’écran 2026-02-15 210826" src="https://github.com/user-attachments/assets/b3abdfb6-fb14-45fe-b354-80f78ac797a4" />
+<img width="1315" height="580" alt="Capture d’écran 2026-02-15 211117" src="https://github.com/user-attachments/assets/3d4a239a-fbe6-4cec-8001-b97cc559697c" />
+<img width="1286" height="558" alt="Capture d’écran 2026-02-15 211318" src="https://github.com/user-attachments/assets/da2eded5-7d92-49df-8ca5-72da29db1d16" />
+
 
 ---
 
